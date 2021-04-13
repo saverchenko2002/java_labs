@@ -1,1 +1,1 @@
-# java_labs
+# simple messenger
