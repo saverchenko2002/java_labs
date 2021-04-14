@@ -1,8 +1,12 @@
 package chat.network;
 
+import chat.client.ClientWindow;
+import chat.server.ChatServer;
+
 import java.io.*;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.util.LinkedHashMap;
 
 public class TCPConnection {
 
