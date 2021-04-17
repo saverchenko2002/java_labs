@@ -15,6 +15,7 @@ public class ClientWindow extends JFrame implements ActionListener, TCPConnectio
 
     private static final String IP_ADDR = "localhost";
     private static final int PORT = 8080;
+    boolean authorized = false;
 
     private final JTextArea log = new JTextArea();
     public JScrollPane scrollLog;
@@ -78,9 +79,11 @@ public class ClientWindow extends JFrame implements ActionListener, TCPConnectio
             public void actionPerformed(ActionEvent e) {
                 try {
                     connection = new TCPConnection(ClientWindow.this, IP_ADDR, PORT);
-
-                } catch (IOException ioException) {
+                    connection.sendString(authorized + " " + loginField.getText() + " " +passwordField.getText());
+                    authorized = true;
+                    System.out.println("confirm button connection " + connection);
                     toServerChat(layout);
+                } catch (IOException ioException) {
                     printMsg("Connection exception: " + ioException);
                 }
             }
@@ -207,7 +210,7 @@ public class ClientWindow extends JFrame implements ActionListener, TCPConnectio
         String msg = fieldInput.getText();
         if (msg.equals("")) return;
         fieldInput.setText(null);
-        connection.sendString(ChatServer.getDatabase().get(connection).getLogin() + ": " + msg);
+        connection.sendString( ": " + msg);
     }
 
     @Override
@@ -219,6 +222,9 @@ public class ClientWindow extends JFrame implements ActionListener, TCPConnectio
     public void onReceiveString(TCPConnection tcpConnection, String value) {
         printMsg(value);
     }
+
+
+
 
     @Override
     public void onDisconnect(TCPConnection tcpConnection) {
@@ -238,10 +244,6 @@ public class ClientWindow extends JFrame implements ActionListener, TCPConnectio
                 log.setCaretPosition(log.getDocument().getLength());
             }
         });
-    }
-
-    public static JTextArea getClientsList() {
-        return clientsList;
     }
 
     public static void main(String[] args) {

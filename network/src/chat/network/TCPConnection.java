@@ -10,6 +10,7 @@ import java.util.LinkedHashMap;
 
 public class TCPConnection {
 
+    boolean a = true;
     private final Socket socket;
     private final Thread rxThread;
     private final TCPConnectionListener eventListener;
@@ -35,6 +36,7 @@ public class TCPConnection {
                     }
                 } catch (IOException e) {
                     eventListener.onException(TCPConnection.this, e);
+                    System.out.println("dolboeb2");
                 } finally {
                     eventListener.onDisconnect(TCPConnection.this);
                 }
@@ -48,6 +50,7 @@ public class TCPConnection {
             out.write(value + "\r\n");
             out.flush();
         } catch (IOException e) {
+            System.out.println("dolboeb");
             eventListener.onException(TCPConnection.this, e);
             disconnect();
         }
@@ -59,6 +62,7 @@ public class TCPConnection {
             socket.close();
         } catch (IOException e) {
             eventListener.onException(TCPConnection.this, e);
+            System.out.println("dolboeb1");
         }
     }
 

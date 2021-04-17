@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.StringTokenizer;
 
 public class ChatServer implements TCPConnectionListener {
 
@@ -15,15 +16,15 @@ public class ChatServer implements TCPConnectionListener {
         new ChatServer();
     }
 
-    private  final ArrayList<TCPConnection> connections = new ArrayList<>();
-    private static final HashMap<TCPConnection, ConnectionInfo> database = new HashMap<>();
+    private final ArrayList<TCPConnection> connections = new ArrayList<>();
+    private static final HashMap<TCPConnection, String> database = new HashMap<>();
+
 
     private ChatServer() {
         System.out.println("Server running.");
         try (ServerSocket serverSocket = new ServerSocket(8080)) {
             while (true) {
                 try {
-                    System.out.println(connections.size());
                     new TCPConnection(this, serverSocket.accept());
                 } catch (IOException e) {
                     System.out.println("TCPConnection exception: " + e);
@@ -37,19 +38,25 @@ public class ChatServer implements TCPConnectionListener {
     @Override
     public synchronized void onConnectionReady(TCPConnection tcpConnection) {
         connections.add(tcpConnection);
-        System.out.println(ChatServer.getDatabase().get(tcpConnection).getLogin());
-        sendToAllConnection("Client connected: " + ChatServer.getDatabase().get(tcpConnection).getLogin());
     }
+
 
     @Override
     public synchronized void onReceiveString(TCPConnection tcpConnection, String value) {
-        sendToAllConnection(value);
+        StringTokenizer str = new StringTokenizer(value, " ");
+        if (str.nextToken().equals("false")) {
+            database.put(tcpConnection, str.nextToken());
+            sendToAllConnection("Client connected: " + database.get(tcpConnection));
+
+        } else
+            sendToAllConnection(database.get(tcpConnection) + value);
     }
+
 
     @Override
     public synchronized void onDisconnect(TCPConnection tcpConnection) {
         connections.remove(tcpConnection);
-        sendToAllConnection("Client disconnected: " + ChatServer.getDatabase().get(tcpConnection).getLogin());
+        sendToAllConnection("Client disconnected: " + database.get(tcpConnection));
     }
 
     @Override
@@ -61,10 +68,4 @@ public class ChatServer implements TCPConnectionListener {
         System.out.println(value);
         for (TCPConnection connection : connections) connection.sendString(value);
     }
-
-    public static HashMap<TCPConnection, ConnectionInfo> getDatabase() {
-        return database;
-    }
-
-
 }
