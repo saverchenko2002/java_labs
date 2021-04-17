@@ -1,21 +1,22 @@
 package chat.client;
 
-import chat.network.ConnectionInfo;
 import chat.network.TCPConnection;
 import chat.network.TCPConnectionListener;
-import chat.server.ChatServer;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.util.HashMap;
 
 public class ClientWindow extends JFrame implements ActionListener, TCPConnectionListener {
 
+    private static HashMap<TCPConnection, String> currentOnline = new HashMap<>();
+
     private static final String IP_ADDR = "localhost";
     private static final int PORT = 8080;
-    boolean authorized = false;
 
     private final JTextArea log = new JTextArea();
     public JScrollPane scrollLog;
@@ -79,13 +80,25 @@ public class ClientWindow extends JFrame implements ActionListener, TCPConnectio
             public void actionPerformed(ActionEvent e) {
                 try {
                     connection = new TCPConnection(ClientWindow.this, IP_ADDR, PORT);
-                    connection.sendString(authorized + " " + loginField.getText() + " " +passwordField.getText());
-                    authorized = true;
-                    System.out.println("confirm button connection " + connection);
+                    connection.sendString("false "  + loginField.getText() + " " +passwordField.getText());
                     toServerChat(layout);
-                } catch (IOException ioException) {
+                    ObjectInputStream databaseDeserialization = new ObjectInputStream(connection.getSocket().getInputStream());
+                    currentOnline = (HashMap<TCPConnection, String>) databaseDeserialization.readObject();
+                } catch (IOException | ClassNotFoundException ioException) {
                     printMsg("Connection exception: " + ioException);
                 }
+            }
+        });
+
+        disconnectButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                try {
+                    connection.getSocket().close();
+                } catch (IOException ioException) {
+                    ioException.printStackTrace();
+                }
+                toLoginMenu(layout);
             }
         });
 

@@ -5,10 +5,13 @@ import chat.network.TCPConnection;
 import chat.network.TCPConnectionListener;
 
 import java.io.IOException;
+import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.StringTokenizer;
+
 
 public class ChatServer implements TCPConnectionListener {
 
@@ -18,6 +21,7 @@ public class ChatServer implements TCPConnectionListener {
 
     private final ArrayList<TCPConnection> connections = new ArrayList<>();
     private static final HashMap<TCPConnection, String> database = new HashMap<>();
+
 
 
     private ChatServer() {
@@ -46,8 +50,15 @@ public class ChatServer implements TCPConnectionListener {
         StringTokenizer str = new StringTokenizer(value, " ");
         if (str.nextToken().equals("false")) {
             database.put(tcpConnection, str.nextToken());
+            System.out.println(database.toString());
             sendToAllConnection("Client connected: " + database.get(tcpConnection));
-
+            ObjectOutputStream databaseSerialization = null;
+            try {
+                databaseSerialization = new ObjectOutputStream(tcpConnection.getSocket().getOutputStream());
+                databaseSerialization.writeObject(database);
+            } catch (IOException e) {
+                onException(tcpConnection, e);
+            }
         } else
             sendToAllConnection(database.get(tcpConnection) + value);
     }

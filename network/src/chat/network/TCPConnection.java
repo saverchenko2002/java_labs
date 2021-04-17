@@ -10,7 +10,6 @@ import java.util.LinkedHashMap;
 
 public class TCPConnection {
 
-    boolean a = true;
     private final Socket socket;
     private final Thread rxThread;
     private final TCPConnectionListener eventListener;
@@ -69,5 +68,9 @@ public class TCPConnection {
     @Override
     public String toString() {
         return "TCPConnection: " + socket.getInetAddress() + ": " + socket.getPort();
+    }
+
+    public Socket getSocket() {
+        return socket;
     }
 }
