@@ -1,31 +1,32 @@
 package chat.server;
 
-import chat.network.ConnectionInfo;
+import chat.network.IStatusCodes;
 import chat.network.TCPConnection;
 import chat.network.TCPConnectionListener;
 
 import java.io.IOException;
-import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
+
 import java.util.StringTokenizer;
+import java.util.concurrent.ConcurrentHashMap;
 
 
-public class ChatServer implements TCPConnectionListener {
+public class ChatServer implements TCPConnectionListener, IStatusCodes {
 
     public static void main(String[] args) {
         new ChatServer();
     }
 
     private final ArrayList<TCPConnection> connections = new ArrayList<>();
-    private static final HashMap<TCPConnection, String> database = new HashMap<>();
+    private static final ConcurrentHashMap<TCPConnection, String> currentConnectionsDatabaseCS = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, TCPConnection> currentConnectionsDatabaseSC = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, String> database = new ConcurrentHashMap<>();
 
-
+    String[] authorizationInfo = new String[3];
 
     private ChatServer() {
-        System.out.println("Server running.");
+        System.out.println("Server running");
         try (ServerSocket serverSocket = new ServerSocket(8080)) {
             while (true) {
                 try {
@@ -44,30 +45,52 @@ public class ChatServer implements TCPConnectionListener {
         connections.add(tcpConnection);
     }
 
-
     @Override
     public synchronized void onReceiveString(TCPConnection tcpConnection, String value) {
         StringTokenizer str = new StringTokenizer(value, " ");
-        if (str.nextToken().equals("false")) {
-            database.put(tcpConnection, str.nextToken());
-            System.out.println(database.toString());
-            sendToAllConnection("Client connected: " + database.get(tcpConnection));
-            ObjectOutputStream databaseSerialization = null;
-            try {
-                databaseSerialization = new ObjectOutputStream(tcpConnection.getSocket().getOutputStream());
-                databaseSerialization.writeObject(database);
-            } catch (IOException e) {
-                onException(tcpConnection, e);
-            }
-        } else
-            sendToAllConnection(database.get(tcpConnection) + value);
-    }
+        authorizationInfo[0] = str.nextToken();
+        if (authorizationInfo[0].equals(REGISTRATION_TOKEN)) {
+            authorizationInfo[1] = str.nextToken();
+            authorizationInfo[2] = str.nextToken();
 
+            if (database.containsKey(authorizationInfo[1])) {
+                tcpConnection.sendString(EXISTING_LOGIN);
+            } else {
+                database.put(authorizationInfo[1], authorizationInfo[2]);
+                tcpConnection.sendString(REGISTRATION_SUCCESS_TOKEN);
+            }
+
+        } else if (authorizationInfo[0].equals(LOGIN_TOKEN)) {
+            authorizationInfo[1] = str.nextToken();
+            authorizationInfo[2] = str.nextToken();
+
+            if (!database.containsKey(authorizationInfo[1])) {
+                tcpConnection.sendString(NONEXISTENT_LOGIN);
+            } else if (database.get(authorizationInfo[1]).equals(authorizationInfo[2])) {
+                if (currentConnectionsDatabaseCS.containsValue(authorizationInfo[1])) {
+                    tcpConnection.sendString(DUAL_CONNECTION_BLOCK);
+                    return;
+                }
+                currentConnectionsDatabaseSC.put(authorizationInfo[1], tcpConnection);
+                currentConnectionsDatabaseCS.put(tcpConnection, authorizationInfo[1]);
+                tcpConnection.sendString(TO_CHAT);
+                sendToAllConnection(currentConnectionsDatabaseCS.get(tcpConnection) + " connected");
+            } else
+                tcpConnection.sendString(WRONG_PASSWORD);
+        } else {
+            sendToAllConnection(currentConnectionsDatabaseCS.get(tcpConnection) + value);
+        }
+
+    }
 
     @Override
     public synchronized void onDisconnect(TCPConnection tcpConnection) {
         connections.remove(tcpConnection);
-        sendToAllConnection("Client disconnected: " + database.get(tcpConnection));
+        tcpConnection.disconnect();
+        sendToAllConnection(currentConnectionsDatabaseCS.get(tcpConnection) + " disconnected");
+        String trashCan = currentConnectionsDatabaseCS.get(tcpConnection);
+        currentConnectionsDatabaseCS.remove(tcpConnection);
+        currentConnectionsDatabaseSC.remove(trashCan);
     }
 
     @Override
@@ -76,7 +99,6 @@ public class ChatServer implements TCPConnectionListener {
     }
 
     private void sendToAllConnection(String value) {
-        System.out.println(value);
         for (TCPConnection connection : connections) connection.sendString(value);
     }
 }
