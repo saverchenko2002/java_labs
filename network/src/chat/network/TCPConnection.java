@@ -1,12 +1,8 @@
 package chat.network;
 
-import chat.client.ClientWindow;
-import chat.server.ChatServer;
-
 import java.io.*;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
-import java.util.LinkedHashMap;
 
 public class TCPConnection {
 
@@ -35,7 +31,6 @@ public class TCPConnection {
                     }
                 } catch (IOException e) {
                     eventListener.onException(TCPConnection.this, e);
-                    System.out.println("dolboeb2");
                 } finally {
                     eventListener.onDisconnect(TCPConnection.this);
                 }
@@ -49,7 +44,6 @@ public class TCPConnection {
             out.write(value + "\r\n");
             out.flush();
         } catch (IOException e) {
-            System.out.println("dolboeb");
             eventListener.onException(TCPConnection.this, e);
             disconnect();
         }
@@ -61,16 +55,11 @@ public class TCPConnection {
             socket.close();
         } catch (IOException e) {
             eventListener.onException(TCPConnection.this, e);
-            System.out.println("dolboeb1");
         }
     }
 
     @Override
     public String toString() {
         return "TCPConnection: " + socket.getInetAddress() + ": " + socket.getPort();
-    }
-
-    public Socket getSocket() {
-        return socket;
     }
 }
