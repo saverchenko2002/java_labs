@@ -47,7 +47,15 @@ public class ChatServer implements TCPConnectionListener, IStatusCodes {
 
     @Override
     public synchronized void onReceiveString(TCPConnection tcpConnection, String value) {
-        StringTokenizer str = new StringTokenizer(value, " ");
+        StringTokenizer str;
+        if (value == null)
+            return;
+        else if (value.equals(DISCONNECT_TOKEN)) {
+            tcpConnection.sendString(DISCONNECT_TOKEN);
+            tcpConnection.disconnect();
+            return;
+        } else
+            str = new StringTokenizer(value, " ");
         authorizationInfo[0] = str.nextToken();
         if (authorizationInfo[0].equals(REGISTRATION_TOKEN)) {
             authorizationInfo[1] = str.nextToken();
@@ -80,13 +88,11 @@ public class ChatServer implements TCPConnectionListener, IStatusCodes {
         } else {
             sendToAllConnection(currentConnectionsDatabaseCS.get(tcpConnection) + value);
         }
-
     }
 
     @Override
     public synchronized void onDisconnect(TCPConnection tcpConnection) {
         connections.remove(tcpConnection);
-        tcpConnection.disconnect();
         sendToAllConnection(currentConnectionsDatabaseCS.get(tcpConnection) + " disconnected");
         String trashCan = currentConnectionsDatabaseCS.get(tcpConnection);
         currentConnectionsDatabaseCS.remove(tcpConnection);
