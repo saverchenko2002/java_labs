@@ -10,4 +10,5 @@ public interface IStatusCodes {
     String TO_CHAT = "TO_CHAT";
     String DUAL_CONNECTION_BLOCK = "DUAL_CONNECTION_BLOCK";
     String SPACES_ERROR = "NO_SPACES_IN_LOGIN_AND_PASSWORD";
+    String DISCONNECT_TOKEN = "DISCONNECT_TOKEN";
 }
