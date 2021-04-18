@@ -35,7 +35,7 @@ public class ClientWindow extends JFrame implements ActionListener, TCPConnectio
 
     public final JButton loginButton = new JButton("Sign in");
     private final JButton registerButton = new JButton("Sign up");
-    private final JButton confirmButton = new JButton("Confirm");
+    private final JButton confirmButton = new JButton("CONFIRM");
     private final JButton disconnectButton = new JButton("Disconnect");
 
     ArrayList<JButton> buttons = new ArrayList<>();
@@ -95,7 +95,7 @@ public class ClientWindow extends JFrame implements ActionListener, TCPConnectio
         for (JTextField field : inputFields)
             field.setFont(logPageFont.deriveFont(Font.PLAIN, 16));
 
-        confirmButton.setFont(loginButton.getFont().deriveFont(Font.BOLD, 14));
+        confirmButton.setFont(confirmFont);
         log.setFont(logsFont);
     }
 
@@ -251,7 +251,7 @@ public class ClientWindow extends JFrame implements ActionListener, TCPConnectio
 
     public void toServerChat(GroupLayout layout) {
         getContentPane().removeAll();
-        log.setText(""); //ОСТОРОЖНО
+
         setSize(780, 730);
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
@@ -286,7 +286,6 @@ public class ClientWindow extends JFrame implements ActionListener, TCPConnectio
                                         .addComponent(inputField, javax.swing.GroupLayout.PREFERRED_SIZE, 45, javax.swing.GroupLayout.PREFERRED_SIZE))
                                 .addContainerGap())
         );
-
 
         repaint();
         setLocationRelativeTo(null);
@@ -355,7 +354,7 @@ public class ClientWindow extends JFrame implements ActionListener, TCPConnectio
 
     @Override
     public void onDisconnect(TCPConnection tcpConnection) {
-        printMsg("Connection closed.");
+        log.setText("");
     }
 
     @Override
