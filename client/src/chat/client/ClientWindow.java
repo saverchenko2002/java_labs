@@ -19,7 +19,7 @@ public class ClientWindow extends JFrame implements ActionListener, TCPConnectio
     private TCPConnection connection;
 
     private static final JTextArea log = new JTextArea(20, 5);
-    private static final JTextArea clientsList = new JTextArea(20, 5);
+    private static final JPanel clientsList = new JPanel();
 
     private static JScrollPane scrollLog;
     private static JScrollPane scrollUsers;
@@ -53,6 +53,7 @@ public class ClientWindow extends JFrame implements ActionListener, TCPConnectio
         setIconImage(Toolkit.getDefaultToolkit().getImage("icon.png"));
         setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         setAlwaysOnTop(true);
+        setLocationRelativeTo(null);
 
         putButtons();
         putInputFields();
@@ -60,9 +61,9 @@ public class ClientWindow extends JFrame implements ActionListener, TCPConnectio
         log.setEditable(false);
         scrollLog = new JScrollPane(log);
         log.setLineWrap(true);
-        clientsList.setEditable(false);
+
         scrollUsers = new JScrollPane(clientsList);
-        clientsList.setLineWrap(true);
+        scrollUsers.add(disconnectButton);
         JButton au = new JButton("au");
         scrollUsers.add(au);
         scrollUsers.updateUI();
@@ -128,7 +129,6 @@ public class ClientWindow extends JFrame implements ActionListener, TCPConnectio
                 if (!connected)
                     try {
                         connection = new TCPConnection(ClientWindow.this, IP_ADDR, PORT);
-                        System.out.println(connection);
                         connected = true;
 
                     } catch (IOException ioException) {
@@ -157,6 +157,7 @@ public class ClientWindow extends JFrame implements ActionListener, TCPConnectio
                 toLoginMenu(layout);
                 registration = false;
                 connected = false;
+                connection.sendString(DISCONNECT_TOKEN);
                 connection.disconnect();
 
             }
@@ -204,9 +205,9 @@ public class ClientWindow extends JFrame implements ActionListener, TCPConnectio
                                 .addPreferredGap(LayoutStyle.ComponentPlacement.RELATED)
                                 .addComponent(registerHint))
         );
-        repaint();
+
         pack();
-        setLocationRelativeTo(null);
+        validate();
         loginField.setText("");
         passwordField.setText("");
     }
@@ -244,15 +245,14 @@ public class ClientWindow extends JFrame implements ActionListener, TCPConnectio
                                 .addComponent(confirmButton)
                                 .addContainerGap(GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
-        repaint();
         pack();
-        setLocationRelativeTo(null);
+        validate();
+
     }
 
     public void toServerChat(GroupLayout layout) {
-        getContentPane().removeAll();
 
-        setSize(780, 730);
+        getContentPane().removeAll();
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
                 layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -287,9 +287,9 @@ public class ClientWindow extends JFrame implements ActionListener, TCPConnectio
                                 .addContainerGap())
         );
 
-        repaint();
-        setLocationRelativeTo(null);
-
+        log.setText(null);
+        pack();
+        validate();
     }
 
 
@@ -347,6 +347,9 @@ public class ClientWindow extends JFrame implements ActionListener, TCPConnectio
                     toLoginMenu(layout);
                 break;
             }
+            case (DISCONNECT_TOKEN): {
+                tcpConnection.disconnect();
+            }
             default:
                 printMsg(value);
         }
@@ -354,12 +357,12 @@ public class ClientWindow extends JFrame implements ActionListener, TCPConnectio
 
     @Override
     public void onDisconnect(TCPConnection tcpConnection) {
-        log.setText("");
+
     }
 
     @Override
     public void onException(TCPConnection tcpConnection, Exception e) {
-        printMsg("Connection exception: " + e);
+
     }
 
 
@@ -380,5 +383,6 @@ public class ClientWindow extends JFrame implements ActionListener, TCPConnectio
                 new ClientWindow();
             }
         });
+
     }
 }
