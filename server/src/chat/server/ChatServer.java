@@ -8,23 +8,15 @@ import chat.network.TCPConnectionListener;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.util.ArrayList;
-
 import java.util.StringTokenizer;
-import java.util.concurrent.ConcurrentHashMap;
-
 
 public class ChatServer implements TCPConnectionListener, IStatusCodes {
-
-
     private final ArrayList<TCPConnection> connections = new ArrayList<>();
-    Database database = new Database();
-
-
-//    String clientsOnline;
+    private final Database database = new Database();
 
 
     private ChatServer() {
-        System.out.println("Server running");
+        System.out.println("Server running.");
         try (ServerSocket serverSocket = new ServerSocket(8080)) {
             while (true) {
                 try {
@@ -45,6 +37,13 @@ public class ChatServer implements TCPConnectionListener, IStatusCodes {
 
     @Override
     public synchronized void onReceiveString(TCPConnection tcpConnection, String value) {
+        if (value == null)
+            return;
+        else if (value.equals(DISCONNECT_TOKEN)) {
+            tcpConnection.disconnect();
+            return;
+        }
+
         String[] authentication = authenticationHandler(value);
         switch (authentication[0]) {
             case (EMPTY_REQUEST):
@@ -71,6 +70,7 @@ public class ChatServer implements TCPConnectionListener, IStatusCodes {
                     tcpConnection.sendString(TO_CHAT);
                     database.putUserOnlineList(authentication[1], tcpConnection);
                     sendToAllConnection(database.getLoginByConnection(tcpConnection) + " connected");
+                    sendToAllConnection(ONLINE_LIST_REFRESH + " " + database.onlineList());
                 } else
                     tcpConnection.sendString(WRONG_PASSWORD);
                 break;
@@ -93,13 +93,11 @@ public class ChatServer implements TCPConnectionListener, IStatusCodes {
     @Override
     public synchronized void onDisconnect(TCPConnection tcpConnection) {
         connections.remove(tcpConnection);
-//        sendToAllConnection(currentConnectionsDatabaseCS.get(tcpConnection) + " disconnected");
-//        String trashCan = currentConnectionsDatabaseCS.get(tcpConnection);
-//        currentConnectionsDatabaseCS.remove(tcpConnection);
-//        currentConnectionsDatabaseSC.remove(trashCan);
-//        clientsOnline = ONLINE_LIST_REFRESH + " ";
-//        clientsOnline += currentConnectionsDatabaseSC.keySet().toString();
-//        sendToAllConnection(clientsOnline);
+        if (database.getLoginByConnection(tcpConnection) != null) {
+            sendToAllConnection(database.getLoginByConnection(tcpConnection) + " disconnected");
+            database.popUserOnlineList(tcpConnection);
+            sendToAllConnection(ONLINE_LIST_REFRESH + " " + database.onlineList());
+        }
     }
 
     @Override
@@ -164,7 +162,6 @@ public class ChatServer implements TCPConnectionListener, IStatusCodes {
         }
         return message;
     }
-
 
     public static void main(String[] args) {
         new ChatServer();
