@@ -10,7 +10,8 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.IOException;
 import java.util.ArrayList;
-
+import java.util.HashMap;
+import java.util.StringTokenizer;
 
 public class ClientWindow extends JFrame implements ActionListener, TCPConnectionListener, IClientGUIConstants, IStatusCodes {
 
@@ -38,13 +39,15 @@ public class ClientWindow extends JFrame implements ActionListener, TCPConnectio
     private final JButton confirmButton = new JButton("CONFIRM");
     private final JButton disconnectButton = new JButton("Disconnect");
 
-    ArrayList<JButton> buttons = new ArrayList<>();
     ArrayList<JTextField> inputFields = new ArrayList<>();
+    String userLogin;
 
     boolean registration = false;
     boolean connected = false;
     GroupLayout layout;
     String spaceHandler;
+    ArrayList<JButton> buttons = new ArrayList<>();
+    HashMap<String, JButton> clientsOnlineButtons = new HashMap<>();
 
     private ClientWindow() {
 
@@ -53,20 +56,14 @@ public class ClientWindow extends JFrame implements ActionListener, TCPConnectio
         setIconImage(Toolkit.getDefaultToolkit().getImage("icon.png"));
         setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         setAlwaysOnTop(true);
-        setLocationRelativeTo(null);
 
         putButtons();
         putInputFields();
-
         log.setEditable(false);
         scrollLog = new JScrollPane(log);
         log.setLineWrap(true);
-
         scrollUsers = new JScrollPane(clientsList);
-        scrollUsers.add(disconnectButton);
-        JButton au = new JButton("au");
-        scrollUsers.add(au);
-        scrollUsers.updateUI();
+        clientsList.setLayout(new GridLayout(10, 1, 0, 0));
 
         inputField.addActionListener(this);
 
@@ -88,17 +85,13 @@ public class ClientWindow extends JFrame implements ActionListener, TCPConnectio
         passwordLabel.setFont(logPageFont);
         registerHint.setFont(logPageFont);
 
-        for (JButton button : buttons) {
-            button.setFont(buttonsFont);
-            button.setForeground(Color.blue);
-        }
-
         for (JTextField field : inputFields)
             field.setFont(logPageFont.deriveFont(Font.PLAIN, 16));
 
         confirmButton.setFont(confirmFont);
         log.setFont(logsFont);
     }
+
 
     private void buttonsListeners(GroupLayout layout) {
         loginButton.addActionListener(new ActionListener() {
@@ -121,8 +114,8 @@ public class ClientWindow extends JFrame implements ActionListener, TCPConnectio
             @Override
             public void actionPerformed(ActionEvent e) {
                 if (loginField.getText().equals("") || passwordField.getText().equals("")) {
-                    JOptionPane.showMessageDialog(ClientWindow.this, "Please enter your login details",
-                            "Login failed", JOptionPane.WARNING_MESSAGE);
+                    JOptionPane.showMessageDialog(ClientWindow.this, "PLEASE ENTER YOUR LOGIN DETAILS",
+                            "LOGIN FAILED", JOptionPane.WARNING_MESSAGE);
                     toLoginMenu(layout);
                     return;
                 }
@@ -136,16 +129,23 @@ public class ClientWindow extends JFrame implements ActionListener, TCPConnectio
                     }
                 spaceHandler = loginField.getText() + passwordField.getText();
                 String[] split = spaceHandler.split(" ");
-                if (split.length > 2) {
+                if (split.length > 1) {
                     if (JOptionPane.showOptionDialog(ClientWindow.this, SPACES_ERROR,
                             "ERROR", JOptionPane.DEFAULT_OPTION, JOptionPane.WARNING_MESSAGE, null, null, null) == 0)
                         toLoginMenu(layout);
                     return;
                 }
-                if (registration)
-                    connection.sendString(REGISTRATION_TOKEN + " " + loginField.getText() + " " + passwordField.getText());
-                else
-                    connection.sendString(LOGIN_TOKEN + " " + loginField.getText() + " " + passwordField.getText());
+                if (connection == null) {
+                    if (JOptionPane.showOptionDialog(ClientWindow.this, "SERVER_OFFLINE",
+                            "ERROR", JOptionPane.DEFAULT_OPTION, JOptionPane.WARNING_MESSAGE, null, null, null) == 0)
+                        toLoginMenu(layout);
+                } else {
+                    if (registration) {
+
+                        connection.sendString(REGISTRATION_TOKEN + " " + loginField.getText() + " " + passwordField.getText());
+                    } else
+                        connection.sendString(LOGIN_TOKEN + " " + loginField.getText() + " " + passwordField.getText());
+                }
 
             }
 
@@ -159,7 +159,10 @@ public class ClientWindow extends JFrame implements ActionListener, TCPConnectio
                 connected = false;
                 connection.sendString(DISCONNECT_TOKEN);
                 connection.disconnect();
-
+                userLogin = null;
+                clientsList.removeAll();
+                validate();
+                clientsOnlineButtons.clear();
             }
         });
     }
@@ -206,10 +209,11 @@ public class ClientWindow extends JFrame implements ActionListener, TCPConnectio
                                 .addComponent(registerHint))
         );
 
+        loginField.setText(null);
+        passwordField.setText(null);
         pack();
         validate();
-        loginField.setText("");
-        passwordField.setText("");
+        setLocationRelativeTo(null);
     }
 
     public void toJoinForm(GroupLayout layout) {
@@ -245,9 +249,10 @@ public class ClientWindow extends JFrame implements ActionListener, TCPConnectio
                                 .addComponent(confirmButton)
                                 .addContainerGap(GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
+        loginField.setText(null);
+        passwordField.setText(null);
         pack();
         validate();
-
     }
 
     public void toServerChat(GroupLayout layout) {
@@ -288,8 +293,11 @@ public class ClientWindow extends JFrame implements ActionListener, TCPConnectio
         );
 
         log.setText(null);
+        loginField.setText(null);
+        passwordField.setText(null);
         pack();
         validate();
+        setLocationRelativeTo(null);
     }
 
 
@@ -298,7 +306,7 @@ public class ClientWindow extends JFrame implements ActionListener, TCPConnectio
         String msg = inputField.getText();
         if (msg.equals("")) return;
         inputField.setText(null);
-        connection.sendString(": " + msg);
+        connection.sendString(SIMPLE_MESSAGE_TOKEN + " : " + msg);
     }
 
     @Override
@@ -308,61 +316,112 @@ public class ClientWindow extends JFrame implements ActionListener, TCPConnectio
 
     @Override
     public void onReceiveString(TCPConnection tcpConnection, String value) {
-        switch (value) {
-            case (EXISTING_LOGIN): {
-                if (JOptionPane.showOptionDialog(ClientWindow.this, EXISTING_LOGIN,
-                        "ERROR", JOptionPane.DEFAULT_OPTION, JOptionPane.WARNING_MESSAGE, null, null, null) == 0)
-                    toLoginMenu(layout);
-                break;
+        if (value == null)
+            return;
+        StringTokenizer str = new StringTokenizer(value, " ");
+        if (str.nextToken().equals(ONLINE_LIST_REFRESH)) {
+            ArrayList<String> onlinePeople = new ArrayList<>();
+            while (str.hasMoreTokens()) {
+                onlinePeople.add(str.nextToken());
             }
+            SwingUtilities.invokeLater(new Runnable() {
+                @Override
+                public void run() {
+                    for (String login : onlinePeople) {
+                        if (!clientsOnlineButtons.containsKey(login)) {
+                            if (userLogin.equals(login))
+                                continue;
+                            clientsOnlineButtons.put(login, new JButton(login));
+                            clientsList.add(clientsOnlineButtons.get(login));
+                            clientsList.validate();
+                            clientsList.repaint();
+                        }
+                    }
+                    for (String key : clientsOnlineButtons.keySet()) {
+                        if (!onlinePeople.contains(key)) {
+                            clientsList.remove(clientsOnlineButtons.get(key));
+                            clientsOnlineButtons.remove(key);
+                            clientsList.validate();
+                            clientsList.repaint();
 
-            case (NONEXISTENT_LOGIN): {
-                if (JOptionPane.showOptionDialog(ClientWindow.this, NONEXISTENT_LOGIN,
-                        "ERROR", JOptionPane.DEFAULT_OPTION, JOptionPane.WARNING_MESSAGE, null, null, null) == 0)
-                    toLoginMenu(layout);
-                break;
+                        }
+                    }
+                }
+            });
+
+        } else {
+            switch (value) {
+                case (EXISTING_LOGIN): {
+                    if (JOptionPane.showOptionDialog(ClientWindow.this, EXISTING_LOGIN,
+                            ERROR_TITLE, JOptionPane.DEFAULT_OPTION, JOptionPane.WARNING_MESSAGE,
+                            null, null, null) == 0)
+                        toLoginMenu(layout);
+                    tcpConnection.disconnect();
+                    log.setText(null);
+                    registration = false;
+                    connected = false;
+                    break;
+                }
+
+                case (NONEXISTENT_LOGIN): {
+                    if (JOptionPane.showOptionDialog(ClientWindow.this, NONEXISTENT_LOGIN,
+                            ERROR_TITLE, JOptionPane.DEFAULT_OPTION, JOptionPane.WARNING_MESSAGE,
+                            null, null, null) == 0)
+                        toLoginMenu(layout);
+                    tcpConnection.disconnect();
+                    log.setText(null);
+                    registration = false;
+                    connected = false;
+                    break;
+                }
+                case (WRONG_PASSWORD): {
+                    if (JOptionPane.showOptionDialog(ClientWindow.this, WRONG_PASSWORD,
+                            ERROR_TITLE, JOptionPane.DEFAULT_OPTION, JOptionPane.WARNING_MESSAGE,
+                            null, null, null) == 0)
+                        toLoginMenu(layout);
+                    tcpConnection.disconnect();
+                    log.setText(null);
+                    registration = false;
+                    connected = false;
+                    break;
+                }
+                case (TO_CHAT): {
+                    registration = true;
+                    userLogin = loginField.getText();
+                    loginField.setText(null);
+                    passwordField.setText(null);
+                    toServerChat(layout);
+                    onConnectionReady(tcpConnection);
+                    break;
+                }
+                case (REGISTRATION_SUCCESS_TOKEN): {
+                    if (JOptionPane.showOptionDialog(ClientWindow.this, REGISTRATION_SUCCESS_TOKEN,
+                            "CONGRATULATIONS", JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE,
+                            null, null, null) == 0)
+                        toLoginMenu(layout);
+                    break;
+                }
+                case (DUAL_CONNECTION_BLOCK): {
+                    if (JOptionPane.showOptionDialog(ClientWindow.this, DUAL_ERROR,
+                            DUAL_CONNECTION_BLOCK, JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE,
+                            null, null, null) == 0)
+                        toLoginMenu(layout);
+                    break;
+                }
+                default:
+                    printMsg(value);
             }
-            case (WRONG_PASSWORD): {
-                if (JOptionPane.showOptionDialog(ClientWindow.this, WRONG_PASSWORD,
-                        "ERROR", JOptionPane.DEFAULT_OPTION, JOptionPane.WARNING_MESSAGE, null, null, null) == 0)
-                    toLoginMenu(layout);
-                break;
-            }
-            case (TO_CHAT): {
-                registration = true;
-                toServerChat(layout);
-                break;
-            }
-            case (REGISTRATION_SUCCESS_TOKEN): {
-                if (JOptionPane.showOptionDialog(ClientWindow.this, REGISTRATION_SUCCESS_TOKEN,
-                        "CONGRATULATIONS", JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE,
-                        null, null, null) == 0)
-                    toLoginMenu(layout);
-                break;
-            }
-            case (DUAL_CONNECTION_BLOCK): {
-                if (JOptionPane.showOptionDialog(ClientWindow.this, "Current user is already on a server",
-                        DUAL_CONNECTION_BLOCK, JOptionPane.DEFAULT_OPTION, JOptionPane.INFORMATION_MESSAGE,
-                        null, null, null) == 0)
-                    toLoginMenu(layout);
-                break;
-            }
-            case (DISCONNECT_TOKEN): {
-                tcpConnection.disconnect();
-            }
-            default:
-                printMsg(value);
         }
     }
 
     @Override
     public void onDisconnect(TCPConnection tcpConnection) {
-
+        tcpConnection.disconnect();
     }
 
     @Override
     public void onException(TCPConnection tcpConnection, Exception e) {
-
+        printMsg("Exception " + e + " SERVER SHUTDOWN");
     }
 
 
