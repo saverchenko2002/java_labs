@@ -7,13 +7,11 @@ import chat.network.TCPConnectionListener;
 
 import java.io.IOException;
 import java.net.ServerSocket;
-import java.util.ArrayList;
 import java.util.StringTokenizer;
 
 public class ChatServer implements TCPConnectionListener, IStatusCodes {
-    private final ArrayList<TCPConnection> connections = new ArrayList<>();
-    private final Database database = new Database();
 
+    private final Database database = new Database();
 
     private ChatServer() {
         System.out.println("Server running.");
@@ -32,13 +30,15 @@ public class ChatServer implements TCPConnectionListener, IStatusCodes {
 
     @Override
     public synchronized void onConnectionReady(TCPConnection tcpConnection) {
-        connections.add(tcpConnection);
+        database.addNewConnection(tcpConnection);
     }
 
     @Override
     public synchronized void onReceiveString(TCPConnection tcpConnection, String value) {
+
         if (value == null)
             return;
+
         else if (value.equals(DISCONNECT_TOKEN)) {
             tcpConnection.disconnect();
             return;
@@ -84,7 +84,18 @@ public class ChatServer implements TCPConnectionListener, IStatusCodes {
                 sendToAllConnection(database.getLoginByConnection(tcpConnection) + message[1]);
                 break;
             }
-            case (PRIVATE_MESSAGE_TOKEN): {
+            case (PRIVATE_MESSAGE_TOKEN_ACTIVATE): {
+                database.getConnectionByLogin(message[1]).sendString(PRIVATE_MESSENGER_RUN + " " + message[2]);
+                database.getConnectionByLogin(message[2]).sendString(PRIVATE_MESSENGER_RUN + " " + message[1]);
+                break;
+            }
+            case (PRIVATE_MESSAGE): {
+                database.getConnectionByLogin(message[1]).sendString(PRIVATE_MESSAGE + " " + message[1] + " " + message[2] + " " + message[3]);
+                break;
+            }
+            case (PRIVATE_MESSAGE_TOKEN_DEACTIVATE): {
+                database.getConnectionByLogin(message[2]).sendString(PRIVATE_MESSAGE_TOKEN_DEACTIVATE + " " + message[1] + " " + message[2] + " NaN");
+                database.getConnectionByLogin(message[1]).sendString(PRIVATE_MESSAGE_TOKEN_DEACTIVATE + " " + message[2] + " " + message[1]);
                 break;
             }
         }
@@ -92,7 +103,7 @@ public class ChatServer implements TCPConnectionListener, IStatusCodes {
 
     @Override
     public synchronized void onDisconnect(TCPConnection tcpConnection) {
-        connections.remove(tcpConnection);
+        database.removeConnection(tcpConnection);
         if (database.getLoginByConnection(tcpConnection) != null) {
             sendToAllConnection(database.getLoginByConnection(tcpConnection) + " disconnected");
             database.popUserOnlineList(tcpConnection);
@@ -106,7 +117,7 @@ public class ChatServer implements TCPConnectionListener, IStatusCodes {
     }
 
     private void sendToAllConnection(String value) {
-        for (TCPConnection connection : connections) connection.sendString(value);
+        for (TCPConnection connection : database.getConnections()) connection.sendString(value);
     }
 
     private String[] authenticationHandler(String value) {
@@ -145,7 +156,7 @@ public class ChatServer implements TCPConnectionListener, IStatusCodes {
             message = new String[1];
             message[0] = EMPTY_REQUEST;
         } else {
-            message = new String[2];
+            message = new String[4];
             str = new StringTokenizer(value, " ");
             message[0] = str.nextToken();
             message[1] = "";
@@ -156,7 +167,19 @@ public class ChatServer implements TCPConnectionListener, IStatusCodes {
                         message[1] += " ";
                     }
                     break;
-                case (PRIVATE_MESSAGE_TOKEN):
+                case (PRIVATE_MESSAGE_TOKEN_ACTIVATE):
+                case (PRIVATE_MESSAGE_TOKEN_DEACTIVATE):
+                    message[1] = str.nextToken();
+                    message[2] = str.nextToken();
+                    break;
+                case (PRIVATE_MESSAGE):
+                    message[1] = str.nextToken();
+                    message[2] = str.nextToken();
+                    message[3] = "";
+                    while (str.hasMoreTokens()) {
+                        message[3] += str.nextToken();
+                        message[3] += " ";
+                    }
                     break;
             }
         }
