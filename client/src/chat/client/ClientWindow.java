@@ -48,13 +48,14 @@ public class ClientWindow extends JFrame implements ActionListener, TCPConnectio
     String spaceHandler;
     ArrayList<JButton> buttons = new ArrayList<>();
     HashMap<String, JButton> clientsOnlineButtons = new HashMap<>();
+    HashMap<String, PrivateChatWindow> privateConversation = new HashMap<>();
+    ArrayList<String> currentPrivateConversationWithThisClient = new ArrayList<>();
 
     private ClientWindow() {
 
         super("Messenger");
 
         setIconImage(Toolkit.getDefaultToolkit().getImage("icon.png"));
-        setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         setAlwaysOnTop(true);
 
         putButtons();
@@ -66,6 +67,25 @@ public class ClientWindow extends JFrame implements ActionListener, TCPConnectio
         clientsList.setLayout(new GridLayout(10, 1, 0, 0));
 
         inputField.addActionListener(this);
+        searchField.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                String request = searchField.getText();
+                if (request.equals(""))
+                    for (String key : clientsOnlineButtons.keySet())
+                        clientsOnlineButtons.get(key).setVisible(true);
+                else if (clientsOnlineButtons.containsKey(request)) {
+                    clientsOnlineButtons.get(request).setVisible(true);
+                }
+                {
+                    for (String key : clientsOnlineButtons.keySet()) {
+                        if (!key.contains(request))
+                            clientsOnlineButtons.get(key).setVisible(false);
+                    }
+                }
+
+            }
+        });
 
         setAllFontAndInsides();
 
@@ -84,6 +104,9 @@ public class ClientWindow extends JFrame implements ActionListener, TCPConnectio
         loginButton.setFocusPainted(false);
         passwordLabel.setFont(logPageFont);
         registerHint.setFont(logPageFont);
+
+        for (JButton button : buttons)
+            button.setFont(buttonsFont);
 
         for (JTextField field : inputFields)
             field.setFont(logPageFont.deriveFont(Font.PLAIN, 16));
@@ -154,15 +177,23 @@ public class ClientWindow extends JFrame implements ActionListener, TCPConnectio
         disconnectButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                toLoginMenu(layout);
-                registration = false;
-                connected = false;
-                connection.sendString(DISCONNECT_TOKEN);
-                connection.disconnect();
-                userLogin = null;
-                clientsList.removeAll();
-                validate();
-                clientsOnlineButtons.clear();
+                if (currentPrivateConversationWithThisClient.size() != 0) {
+                    JOptionPane.showOptionDialog(ClientWindow.this, "please quit your private conversations first",
+                            ERROR_TITLE, JOptionPane.DEFAULT_OPTION, JOptionPane.WARNING_MESSAGE,
+                            null, null, null);
+                } else {
+                    toLoginMenu(layout);
+                    registration = false;
+                    connected = false;
+                    System.out.println("DISCONNECT BUTTON HASHMAP " + privateConversation.keySet());
+                    System.out.println("DISCONNECT BUTTON ARRAYLIST " + currentPrivateConversationWithThisClient);
+                    connection.sendString(DISCONNECT_TOKEN);
+                    connection.disconnect();
+                    userLogin = null;
+                    clientsList.removeAll();
+                    validate();
+                    clientsOnlineButtons.clear();
+                }
             }
         });
     }
@@ -214,6 +245,8 @@ public class ClientWindow extends JFrame implements ActionListener, TCPConnectio
         pack();
         validate();
         setLocationRelativeTo(null);
+        setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+
     }
 
     public void toJoinForm(GroupLayout layout) {
@@ -253,6 +286,8 @@ public class ClientWindow extends JFrame implements ActionListener, TCPConnectio
         passwordField.setText(null);
         pack();
         validate();
+        setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+
     }
 
     public void toServerChat(GroupLayout layout) {
@@ -298,6 +333,7 @@ public class ClientWindow extends JFrame implements ActionListener, TCPConnectio
         pack();
         validate();
         setLocationRelativeTo(null);
+        setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
     }
 
 
@@ -316,10 +352,14 @@ public class ClientWindow extends JFrame implements ActionListener, TCPConnectio
 
     @Override
     public void onReceiveString(TCPConnection tcpConnection, String value) {
+        String[] conversationInfo = new String[2];
+        String fullKey = "";
+        String loginAddress = "";
         if (value == null)
             return;
         StringTokenizer str = new StringTokenizer(value, " ");
-        if (str.nextToken().equals(ONLINE_LIST_REFRESH)) {
+        String code = str.nextToken();
+        if (code.equals(ONLINE_LIST_REFRESH)) {
             ArrayList<String> onlinePeople = new ArrayList<>();
             while (str.hasMoreTokens()) {
                 onlinePeople.add(str.nextToken());
@@ -327,6 +367,7 @@ public class ClientWindow extends JFrame implements ActionListener, TCPConnectio
             SwingUtilities.invokeLater(new Runnable() {
                 @Override
                 public void run() {
+                    String avoid = "avoid";
                     for (String login : onlinePeople) {
                         if (!clientsOnlineButtons.containsKey(login)) {
                             if (userLogin.equals(login))
@@ -337,17 +378,81 @@ public class ClientWindow extends JFrame implements ActionListener, TCPConnectio
                             clientsList.repaint();
                         }
                     }
-                    for (String key : clientsOnlineButtons.keySet()) {
-                        if (!onlinePeople.contains(key)) {
-                            clientsList.remove(clientsOnlineButtons.get(key));
-                            clientsOnlineButtons.remove(key);
-                            clientsList.validate();
-                            clientsList.repaint();
-
+                    go:
+                    {
+                        for (String key : clientsOnlineButtons.keySet()) {
+                            if (!onlinePeople.contains(key)) {
+                                clientsList.remove(clientsOnlineButtons.get(key));
+                                clientsOnlineButtons.remove(key);
+                                clientsList.validate();
+                                clientsList.repaint();
+                                break go;
+                            }
                         }
+                    }
+                    for (JButton button : clientsOnlineButtons.values()) {
+                        System.out.println("clientsOnlineButtons  " + clientsOnlineButtons.keySet());
+                        System.out.println(privateConversation.keySet());
+                        button.addActionListener(new ActionListener() {
+                            @Override
+                            public void actionPerformed(ActionEvent e) {
+                                if (currentPrivateConversationWithThisClient.contains(button.getText() + " " + userLogin)) {
+                                    JOptionPane.showOptionDialog(ClientWindow.this, "you are currently in conv with this user",
+                                            ERROR_TITLE, JOptionPane.DEFAULT_OPTION, JOptionPane.WARNING_MESSAGE,
+                                            null, null, null);
+
+                                } else
+                                    connection.sendString(PRIVATE_MESSAGE_TOKEN_ACTIVATE + " " + userLogin + " " + button.getText());
+                            }
+                        });
                     }
                 }
             });
+
+        } else if (code.equals(PRIVATE_MESSENGER_RUN)) {
+            loginAddress = str.nextToken();
+            fullKey += loginAddress;
+            fullKey += " ";
+            fullKey += userLogin;
+
+
+            System.out.println("КЛЮЧ ПОМЕЩЕНИЯ " + fullKey + " ДЛЯ ОКНА " + userLogin);
+            if (!privateConversation.containsKey(fullKey))
+                privateConversation.put(fullKey, new PrivateChatWindow(connection, userLogin, loginAddress));
+            if (!currentPrivateConversationWithThisClient.contains(fullKey))
+                currentPrivateConversationWithThisClient.add(fullKey);
+            System.out.println("НАБОР КЛЮЧЕЙ " + privateConversation.keySet() + " ДЛЯ ОКНА " + userLogin);
+            System.out.println("КОЛИЧЕСТВО ОКОН ДЛЯ ОКНА НОМЕР " + userLogin + " " + privateConversation.size());
+
+        } else if (code.equals(PRIVATE_MESSAGE)) {
+            String msg = "";
+            fullKey = "";
+            conversationInfo[0] = str.nextToken(); //to
+
+            conversationInfo[1] = str.nextToken(); //from
+            fullKey += conversationInfo[1] + " ";
+            fullKey += conversationInfo[0];
+            while (str.hasMoreTokens()) {
+                msg += str.nextToken();
+                msg += " ";
+            }
+            privateConversation.get(fullKey).updateLogs(msg);
+        } else if (code.equals(PRIVATE_MESSAGE_TOKEN_DEACTIVATE)) {
+            System.out.println("VALUE " + value);
+            fullKey = "";
+            fullKey += str.nextToken();
+            fullKey += " ";
+            fullKey += str.nextToken();
+            if (!str.hasMoreTokens())
+                privateConversation.get(fullKey).closeRequest(fullKey + " left the channel");
+
+            for (String key : privateConversation.keySet()) {
+                if (key.equals(fullKey)) {
+                    privateConversation.remove(fullKey);
+                    currentPrivateConversationWithThisClient.remove(fullKey);
+                    return;
+                }
+            }
 
         } else {
             switch (value) {
@@ -391,7 +496,6 @@ public class ClientWindow extends JFrame implements ActionListener, TCPConnectio
                     loginField.setText(null);
                     passwordField.setText(null);
                     toServerChat(layout);
-                    onConnectionReady(tcpConnection);
                     break;
                 }
                 case (REGISTRATION_SUCCESS_TOKEN): {
@@ -421,7 +525,7 @@ public class ClientWindow extends JFrame implements ActionListener, TCPConnectio
 
     @Override
     public void onException(TCPConnection tcpConnection, Exception e) {
-        printMsg("Exception " + e + " SERVER SHUTDOWN");
+        printMsg("Exception " + e);
     }
 
 
