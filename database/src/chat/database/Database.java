@@ -2,14 +2,15 @@ package chat.database;
 
 import chat.network.TCPConnection;
 
-import java.io.*;
+import java.util.ArrayList;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class Database implements Serializable {
+public class Database {
+
     private static final ConcurrentHashMap<String, String> database = new ConcurrentHashMap<>();
+    private final ArrayList<TCPConnection> connections = new ArrayList<>();
     private static final ConcurrentHashMap<TCPConnection, String> currentUsersConnectionLogin = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<String, TCPConnection> currentUsersLoginConnection = new ConcurrentHashMap<>();
-    private static final long serialVersionUID = 1L;
 
     public Database() {
 
@@ -46,9 +47,25 @@ public class Database implements Serializable {
         return currentUsersConnectionLogin.get(tcpConnection);
     }
 
+    public TCPConnection getConnectionByLogin(String login) {
+        return currentUsersLoginConnection.get(login);
+    }
+
     public String onlineList() {
         String list = currentUsersLoginConnection.keySet().toString();
-        list = list.replace("]","").replace("[","").replace(",", "");
+        list = list.replace("]", "").replace("[", "").replace(",", "");
         return list;
+    }
+
+    public void addNewConnection(TCPConnection tcpConnection) {
+        connections.add(tcpConnection);
+    }
+
+    public void removeConnection(TCPConnection tcpConnection) {
+        connections.remove(tcpConnection);
+    }
+
+    public ArrayList<TCPConnection> getConnections() {
+        return connections;
     }
 }
