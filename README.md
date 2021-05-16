@@ -1,1 +1,1 @@
-# java_labs
+# servlet based chat
