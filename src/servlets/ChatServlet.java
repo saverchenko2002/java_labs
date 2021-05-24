@@ -9,19 +9,19 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedList;
 
 @WebServlet(name = "ChatServlet")
 public class ChatServlet extends HttpServlet {
     protected HashMap<String, ChatUser> activeUsers;
-    protected ArrayList<ChatMessage> messages;
+    protected LinkedList<ChatMessage> messages;
 
     @Override
     public void init() throws ServletException {
         super.init();
         activeUsers = (HashMap<String, ChatUser>) getServletContext().getAttribute("activeUsers");
-        messages = (ArrayList<ChatMessage>) getServletContext().getAttribute("messages");
+        messages = (LinkedList<ChatMessage>) getServletContext().getAttribute("messages");
 
         if (activeUsers == null) {
             activeUsers = new HashMap<String, ChatUser>();
@@ -29,7 +29,7 @@ public class ChatServlet extends HttpServlet {
         }
 
         if (messages == null) {
-            messages = new ArrayList<ChatMessage>();
+            messages = new LinkedList<ChatMessage>();
             getServletContext().setAttribute("messages", messages);
         }
     }

@@ -100,7 +100,7 @@ public class LoginServlet extends ChatServlet {
             Cookie sessionIdCookie = new Cookie("sessionId", sessionId);
             sessionIdCookie.setMaxAge(60 * 60 * 24);
             response.addCookie(sessionIdCookie);
-            response.sendRedirect(response.encodeRedirectURL("/chat/view.html"));
+            response.sendRedirect(response.encodeRedirectURL("/chat/view.jsp"));
             return null;
         } else {
             return "Извините, но имя <strong>" + name + "</strong> уже кем-то занято. Пожалуйста выберите другое имя!";
