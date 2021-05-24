@@ -37,7 +37,7 @@
         <servlet-name>MessageListServlet</servlet-name>
         <url-pattern>/messages</url-pattern>
     </servlet-mapping>
-    
+
     <servlet>
         <servlet-name>NewMessageServlet</servlet-name>
         <servlet-class>servlets.NewMessageServlet</servlet-class>
@@ -45,6 +45,15 @@
     <servlet-mapping>
         <servlet-name>NewMessageServlet</servlet-name>
         <url-pattern>/sendMessage</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>StatusServlet</servlet-name>
+        <servlet-class>servlets.StatusServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>StatusServlet</servlet-name>
+        <url-pattern>/status</url-pattern>
     </servlet-mapping>
 
 
